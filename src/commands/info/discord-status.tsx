@@ -1,41 +1,30 @@
 import { SeparatorSpacingSize } from "oceanic.js";
 import { defineCommand } from "~/Commands";
 import { handleError } from "~/index";
+import { getEmoji } from "~/modules/emojiManager";
 import { fetchJson } from "~/util/fetch";
-import { toTitle } from "~/util/text";
-import { ComponentMessage, Container, Section, Separator, TextDisplay, Thumbnail } from "~components";
+import { makeConstants } from "~/util/objects";
+import { toInlineCode, toTitle } from "~/util/text";
+import { ComponentMessage, Container, Separator, TextDisplay } from "~components";
 
-const statusEmoji = (status: string) => {
-    switch (status) {
-        case "operational":
-            return "🟢";
-        case "degraded_performance":
-            return "🟡";
-        case "partial_outage":
-            return "🟠";
-        case "major_outage":
-            return "🔴";
-        default:
-            return "⚪";
-    }
-};
+const StatusEmoji = makeConstants({
+    operational: "🟢",
+    degraded_performance: "🟡",
+    partial_outage: "🟠",
+    major_outage: "🔴",
+    default: "⚪"
+});
 
-const impactEmoji = (impact: string) => {
-    switch (impact) {
-        case "none":
-            return "⚫";
-        case "maintenance":
-            return "🟡";
-        case "minor":
-            return "🟡";
-        case "major":
-            return "🟠";
-        case "critical":
-            return "🔴";
-        default:
-            return "⚫";
-    }
-};
+const ImpactEmoji = makeConstants({
+    none: "⚫",
+    maintenance: "🟡",
+    minor: "🟡",
+    major: "🟠",
+    critical: "🔴",
+});
+
+const getStatusEmoji = (status: string) => toInlineCode(StatusEmoji[status as keyof typeof StatusEmoji] ?? StatusEmoji.default);
+const getImpactEmoji = (impact: string) => toInlineCode(ImpactEmoji[impact as keyof typeof ImpactEmoji] ?? ImpactEmoji.none);
 
 interface DiscordComponentsResponse {
     components: Array<{
@@ -71,8 +60,8 @@ async function getDiscordStatusIncidents(): Promise<DiscordIncidentsResponse | n
 async function buildStatusEmbed(components: DiscordComponentsResponse, incidents: DiscordIncidentsResponse) {
     const systemStatus = components.components
         .filter(c => c.status !== "operational")
-        .map(c => `### ${statusEmoji(c.status)} ${toTitle(c.status)}`)
-        .join("\n") || `### ${statusEmoji("operational")} All Systems Operational`;
+        .map(c => `### ${getStatusEmoji(c.status)} ${toTitle(c.status)}`)
+        .join("\n") || `### ${getStatusEmoji("operational")} All Systems Operational`;
 
     const systemOutages = incidents.incidents
         .filter(i => i.status !== "resolved")
@@ -85,17 +74,15 @@ async function buildStatusEmbed(components: DiscordComponentsResponse, incidents
                 )
                 .join("\n\n");
 
-            return `### ${impactEmoji(i.impact)} [${i.name}](https://discordstatus.com/incidents/${i.id})\n${updates}`;
+            return `### ${getImpactEmoji(i.impact)} [${i.name}](https://discordstatus.com/incidents/${i.id})\n${updates}`;
         })
         .join("\n\n") || null;
 
     return (
         <ComponentMessage>
             <Container>
-                <Section accessory={<Thumbnail url="https://cdn.discordapp.com/embed/avatars/0.png" />}>
-                    <TextDisplay>## Discord Status</TextDisplay>
-                    <TextDisplay>{systemStatus}</TextDisplay>
-                </Section>
+                <TextDisplay># {getEmoji("discord_logo")} Discord Status</TextDisplay>
+                <TextDisplay>{systemStatus}</TextDisplay>
 
                 {systemOutages && (
                     <>
