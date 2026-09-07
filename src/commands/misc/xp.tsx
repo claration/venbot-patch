@@ -41,56 +41,54 @@ defineCommand({
     },
 });
 
-const makeLeaderboard = () => async ({ msg, reply }) => {
-    const stats = await db
-        .selectFrom("xp")
-        .select(({ fn }) => [
-            "userId",
-            fn.sum("xp").$castTo<number>().as("xp")
-        ])
-        .groupBy("userId")
-        .orderBy("xp", "desc")
-        .execute();
-
-    if (!stats.length)
-        return reply("No one has talked yet! Keep in mind that I only track XP from this server :3");
-
-    const leaderboard = stats.map((user, index) => ({
-        ...user,
-        rank: index + 1
-    }));
-
-    const me = leaderboard.find(user => user.userId === msg.author.id);
-
-    const paginator = new Paginator(
-        "XP Leaderboard",
-        leaderboard,
-        20,
-        users => {
-            let result = formatCountAndName(
-                users.map(({ rank, userId, xp }) => {
-                    const name = userId === msg.author.id ? `**>> <@${userId}> <<**` : `<@${userId}>`;
-                    return [`#${rank}`, `${name} - Level ${getLevelForXp(xp)}`];
-                })
-            );
-
-            if (!users.some(user => user.userId === msg.author.id)) {
-                result += "\n\n" + formatCountAndName([[`#${me?.rank ?? 0}`, `You - Level ${getLevelForXp(me?.xp ?? 0)}`]]);
-            }
-
-            return result;
-        },
-        `${leaderboard.length} users have earned XP • ${leaderboard.reduce((total, user) => total + user.xp, 0).toLocaleString()} total XP earned`
-    );
-
-    return paginator.create(msg);
-};
-
 defineCommand({
     name: "xp-leaderboard",
     aliases: ["xplb", "xp-lb", "xptop"],
     description: "Get the XP leaderboard",
     usage: null,
     guildOnly: true,
-    execute: makeLeaderboard(),
+    async execute({ msg, reply }) {
+        const stats = await db
+            .selectFrom("xp")
+            .select(({ fn }) => [
+                "userId",
+                fn.sum("xp").$castTo<number>().as("xp")
+            ])
+            .groupBy("userId")
+            .orderBy("xp", "desc")
+            .execute();
+
+        if (!stats.length)
+            return reply("No one has talked yet! Keep in mind that I only track XP from this server :3");
+
+        const leaderboard = stats.map((user, index) => ({
+            ...user,
+            rank: index + 1
+        }));
+
+        const me = leaderboard.find(user => user.userId === msg.author.id);
+
+        const paginator = new Paginator(
+            "XP Leaderboard",
+            leaderboard,
+            20,
+            users => {
+                let result = formatCountAndName(
+                    users.map(({ rank, userId, xp }) => {
+                        const name = userId === msg.author.id ? `**>> <@${userId}> <<**` : `<@${userId}>`;
+                        return [`#${rank}`, `${name} - Level ${getLevelForXp(xp)}`];
+                    })
+                );
+
+                if (!users.some(user => user.userId === msg.author.id)) {
+                    result += "\n\n" + formatCountAndName([[`#${me?.rank ?? 0}`, `You - Level ${getLevelForXp(me?.xp ?? 0)}`]]);
+                }
+
+                return result;
+            },
+            `${leaderboard.length} users have earned XP • ${leaderboard.reduce((total, user) => total + user.xp, 0).toLocaleString()} total XP earned`
+        );
+
+        return paginator.create(msg);
+    }
 });
